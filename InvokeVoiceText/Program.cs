@@ -68,7 +68,12 @@ namespace InvokeVoiceText
                             catch (Exception ex)
                             {
                                 Console.Error.WriteLine(ex.Message);
+                                FullSpeak = $"Cannot read from the speech.txt file. {ex.Message}";
                             }
+                        }
+                        else
+                        {
+                            FullSpeak = string.Join(" ", args);
                         }
                     }
                     else
@@ -79,7 +84,7 @@ namespace InvokeVoiceText
             }
             else
             {
-                FullSpeak = "Invoke VoiceText has no command line arguments. Please provide command line arguments to be spoken.";
+                FullSpeak = "Invoke VoiceText has no command line arguments. Please provide command line arguments.";
             }
 
             Console.WriteLine("--- START OF TEXT ---\r\n" +
@@ -117,6 +122,7 @@ namespace InvokeVoiceText
             {
                 Environment.Exit(1);
             }
+            Thread.Sleep(10000);
         }
 
         [DllImport("shell32.dll", SetLastError = true)]
@@ -133,14 +139,42 @@ namespace InvokeVoiceText
                     return false;
                 }
 
-                var processes = Process.GetProcessesByName("VTEditor_ENG");
-                if (processes.Length == 0)
+                Process[] processes = Process.GetProcesses();
+                Process process = null;
+
+                foreach (var proc in processes)
                 {
-                    Console.Error.WriteLine("No process found. Make sure the VoiceText Editor is open, and that the VoiceText filename is \"VTEditor_ENG.exe\".");
+                    try
+                    {
+                        if (proc.ProcessName.ToLowerInvariant().Contains("vt"))
+                        {
+                            string exePath = proc.MainModule.FileName;
+                            var versionInfo = FileVersionInfo.GetVersionInfo(exePath);
+
+
+
+                            if (versionInfo.FileDescription.ToLowerInvariant().Contains("vteditor"))
+                            {
+                                process = proc;
+                                break;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"Cannot find info about {proc.ProcessName}. {ex.Message}");
+                    }
+                }
+
+
+                //Process[] processes = Process.GetProcessesByName("VTEditor_ENG");
+                if (process == null)
+                {
+                    Console.Error.WriteLine("No process found. Make sure the VoiceText Editor is open.");
                     return false;
                 }
 
-                mainHandle = processes[0].MainWindowHandle;
+                mainHandle = process.MainWindowHandle;
 
                 IntPtr richEdit = IntPtr.Zero;
                 EnumChildWindows(mainHandle, (hwnd, l) =>
